@@ -1,0 +1,88 @@
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+
+  service_users:
+    build:
+      context: .
+      dockerfile: service_users/Dockerfile
+    environment:
+      - APP_ENV=dev
+      - SERVICE_NAME=service_users
+      - PORT=8001
+      - DATABASE_URL=sqlite:////data/users.db
+      - USERS_SERVICE_URL=http://service_users:8001
+      - ORDERS_SERVICE_URL=http://service_orders:8002
+      - CORS_ALLOW_ORIGINS=*
+      - JWT_SECRET=dev-secret-change-me
+      - JWT_ISSUER=micro-task
+      - JWT_AUDIENCE=micro-task-users
+      - JWT_EXP_MINUTES=60
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_SERVICE_NAMESPACE=micro-task
+    volumes:
+      - users_data:/data
+    ports:
+      - "8001:8001"
+    depends_on:
+      - jaeger
+
+  service_orders:
+    build:
+      context: .
+      dockerfile: service_orders/Dockerfile
+    environment:
+      - APP_ENV=dev
+      - SERVICE_NAME=service_orders
+      - PORT=8002
+      - DATABASE_URL=sqlite:////data/orders.db
+      - USERS_SERVICE_URL=http://service_users:8001
+      - ORDERS_SERVICE_URL=http://service_orders:8002
+      - CORS_ALLOW_ORIGINS=*
+      - JWT_SECRET=dev-secret-change-me
+      - JWT_ISSUER=micro-task
+      - JWT_AUDIENCE=micro-task-users
+      - JWT_EXP_MINUTES=60
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_SERVICE_NAMESPACE=micro-task
+    volumes:
+      - orders_data:/data
+    ports:
+      - "8002:8002"
+    depends_on:
+      - jaeger
+      - service_users
+
+  api_gateway:
+    build:
+      context: .
+      dockerfile: api_gateway/Dockerfile
+    environment:
+      - APP_ENV=dev
+      - SERVICE_NAME=api_gateway
+      - PORT=8000
+      - USERS_SERVICE_URL=http://service_users:8001
+      - ORDERS_SERVICE_URL=http://service_orders:8002
+      - CORS_ALLOW_ORIGINS=*
+      - JWT_SECRET=dev-secret-change-me
+      - JWT_ISSUER=micro-task
+      - JWT_AUDIENCE=micro-task-users
+      - JWT_EXP_MINUTES=60
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_SERVICE_NAMESPACE=micro-task
+      - RATE_LIMIT=60/minute
+    ports:
+      - "8000:8000"
+    depends_on:
+      - jaeger
+      - service_users
+      - service_orders
+
+volumes:
+  users_data:
+  orders_data:

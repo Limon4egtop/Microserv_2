@@ -1,0 +1,166 @@
+openapi: 3.0.3
+info:
+  title: Micro Task Backend API (Gateway)
+  version: "1.0.0"
+servers:
+  - url: /v1
+paths:
+  /users/register:
+    post:
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "200":
+          description: OK
+  /users/login:
+    post:
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: OK
+  /users/me:
+    get:
+      security: [ { bearerAuth: [] } ]
+      summary: Get current profile
+      responses: { "200": { description: OK } }
+    put:
+      security: [ { bearerAuth: [] } ]
+      summary: Update current profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfileRequest" }
+      responses: { "200": { description: OK } }
+  /users:
+    get:
+      security: [ { bearerAuth: [] } ]
+      summary: List users (admin only)
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: email
+          schema: { type: string }
+      responses: { "200": { description: OK } }
+  /orders:
+    post:
+      security: [ { bearerAuth: [] } ]
+      summary: Create order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateOrderRequest" }
+      responses: { "200": { description: OK } }
+    get:
+      security: [ { bearerAuth: [] } ]
+      summary: List my orders
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: sort
+          description: created_at|total_sum|status
+          schema: { type: string, default: created_at }
+        - in: query
+          name: order
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses: { "200": { description: OK } }
+  /orders/{order_id}:
+    get:
+      security: [ { bearerAuth: [] } ]
+      summary: Get order by id
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses: { "200": { description: OK } }
+  /orders/{order_id}/status:
+    patch:
+      security: [ { bearerAuth: [] } ]
+      summary: Update order status
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateStatusRequest" }
+      responses: { "200": { description: OK } }
+  /orders/{order_id}/cancel:
+    post:
+      security: [ { bearerAuth: [] } ]
+      summary: Cancel my order
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses: { "200": { description: OK } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        name: { type: string, minLength: 1 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name: { type: string }
+    CreateOrderRequest:
+      type: object
+      required: [items, total_sum]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [product, quantity]
+            properties:
+              product: { type: string, minLength: 1 }
+              quantity: { type: integer, minimum: 1 }
+        total_sum: { type: number, minimum: 0 }
+    UpdateStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [created, in_progress, completed, cancelled]
